@@ -61,7 +61,8 @@ sap.ui.define(
 
             onDelete: function () {
                 var oContext,
-                    oSelected = this.byId("peopleList").getSelectedItem(),
+                    oPeopleList = this.byId("peopleList"),
+                    oSelected = oPeopleList.getSelectedItem(),
                     sUserName;
 
                 if (oSelected) {
@@ -72,6 +73,9 @@ sap.ui.define(
                             MessageToast.show(this._getText("deletionSuccessMessage", sUserName));
                         }.bind(this),
                         function (oError) {
+                            if (oContext === oPeopleList.getSelectedItem().getBindingContext()) {
+                                this._setDetailArea(oContext);
+                            }
                             this._setUIChanges();
                             if (oError.canceled) {
                                 MessageToast.show(this._getText("deletionRestoredMessage", sUserName));
@@ -80,6 +84,7 @@ sap.ui.define(
                             MessageBox.error(oError.message + ": " + sUserName);
                         }.bind(this)
                     );
+                    this._setDetailArea();
                     this._setUIChanges(true);
                 }
             },
@@ -201,6 +206,10 @@ sap.ui.define(
                 bMessageOpen = true;
             },
 
+            onSelectionChange: function (oEvent) {
+                this._setDetailArea(oEvent.getParameter("listItem").getBindingContext());
+            },
+
             /* =========================================================== */
             /*           end: event handlers                               */
             /* =========================================================== */
@@ -228,6 +237,41 @@ sap.ui.define(
             _setBusy: function (bIsBusy) {
                 var oModel = this.getView().getModel("appView");
                 oModel.setProperty("/busy", bIsBusy);
+            },
+
+            /**
+             * Toggles the visibility of the detail area
+             *
+             * @param {object} [oUserContext] - the current user context
+             */
+            _setDetailArea: function (oUserContext) {
+                var oDetailArea = this.byId("detailArea"),
+                    oLayout = this.byId("defaultLayout"),
+                    oOldContext,
+                    oSearchField = this.byId("searchField");
+
+                if (!oDetailArea) {
+                    return; // do nothing when running within view destruction
+                }
+
+                oOldContext = oDetailArea.getBindingContext();
+                if (oOldContext) {
+                    oOldContext.setKeepAlive(false);
+                }
+                if (oUserContext) {
+                    oUserContext.setKeepAlive(
+                        true,
+                        // hide details if kept endtity was refreshed but oes not exists any more
+                        this._setDetailArea.bind(this)
+                    );
+                }
+
+                oDetailArea.setBindingContext(oUserContext || null);
+                // resize view
+                oDetailArea.setVisible(!!oUserContext);
+                oLayout.setSize(oUserContext ? "60%" : "100%");
+                oLayout.setResizable(!!oUserContext);
+                oSearchField.setWidth(oUserContext ? "40%" : "20%");
             },
         });
     }
